@@ -1,0 +1,21 @@
+---
+- hosts: oxy
+   
+  tasks:
+  - name: Installing packages on host
+    apt: 
+      name: ['lxc', 'lxc-dev', 'lxc-templates', 'python-dev', 'python-pip', 'python-setuptools', 'gcc', 'debootstrap', 'bridge-utils', 'apparmor']
+      update_cache: yes
+
+  - name: Installing pip lxc-python2
+    pip:
+      name: ['lxc-python2']
+    run_once: true
+
+  - name: Copy bridge script
+    template: src=./files/br_config.j2 dest=/etc/network/interfaces.d/50-cloud-init
+    notify: Restart network
+
+  handlers:
+  - name: Restart network
+    service: name=networking state=restarted

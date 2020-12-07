@@ -1,0 +1,39 @@
+auto lo
+iface lo inet loopback
+
+auto {{ interface }}
+iface {{ interface }} inet dhcp
+    dns-nameservers {{ domainserver1_v4 }} {{ domainserver2_v4}} {{ domainserver3_v4}}
+
+iface {{ interface }} inet6 static
+    address {{ interface_ipv6 }}/64
+    gateway {{ interface_gateway }}
+
+iface {{ interface }} inet6 static
+    address {{ pub_c1_ip_address_1 }}/64    
+
+iface {{ interface }} inet6 static
+    address {{ pub_c1_ip_address_2 }}/64
+
+iface {{ interface }} inet6 static
+    address {{ pub_c1_ip_address_3 }}/64
+
+iface {{ interface }} inet6 static
+    address {{ pub_c1_ip_address_4 }}/64    
+
+iface {{ interface }} inet6 static
+    address {{ pub_c2_ip_address_1 }}/64    
+
+iface {{ interface }} inet6 static
+    address {{ pub_c2_ip_address_2 }}/64
+
+iface {{ interface }} inet6 static
+    address {{ pub_c2_ip_address_3 }}/64
+
+iface {{ interface }} inet6 static
+    address {{ pub_c2_ip_address_4 }}/64  
+
+auto {{ br_interface }}
+iface {{ br_interface }} inet6 static
+    address {{ int_gw }}/64
+    bridge_ports none
