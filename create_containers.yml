@@ -100,3 +100,100 @@
         systemctl enable danted
         systemctl restart danted
   
+  - name: Install container c2
+    lxc_container:
+      name: c2
+      template: debian
+      state: started
+      template_options: --release buster
+      container_config:
+        - "lxc.net.0.type = veth"
+        - "lxc.net.0.flags = up"
+        - "lxc.net.0.link = {{ br_interface }}"
+        - "lxc.net.0.name = eth0" 
+        - "lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx"
+        - "lxc.net.0.ipv6.address = {{ c2_ip_address_1 }}/64"
+        - "lxc.net.0.ipv6.address = {{ c2_ip_address_2 }}/64"
+        - "lxc.net.0.ipv6.address = {{ c2_ip_address_3 }}/64"
+        - "lxc.net.0.ipv6.address = {{ c2_ip_address_4 }}/64"
+        - "lxc.net.0.ipv6.gateway = {{ int_gw }}"
+        - "lxc.start.auto = 1"
+      container_command: |
+        echo 'nameserver 2606:4700:4700::1111' > /etc/resolv.conf
+        echo 'nameserver 2606:4700:4700::1001' >> /etc/resolv.conf
+        
+
+  - name: Configure container c2
+    lxc_container:
+      name: c2
+      container_command: |
+        DEBIAN_FRONTEND=noninteractive apt install -y squid dante-server apache2-utils
+
+        htpasswd -cb /etc/squid/passwd {{ squid_user }} {{ squid_pass }}
+
+        echo 'http_port [{{ c2_ip_address_1 }}]:3128' > /etc/squid/squid.conf
+        echo 'http_port [{{ c2_ip_address_2 }}]:3128' >> /etc/squid/squid.conf
+        echo 'http_port [{{ c2_ip_address_3 }}]:3128' >> /etc/squid/squid.conf
+        echo 'http_port [{{ c2_ip_address_4 }}]:3128' >> /etc/squid/squid.conf
+        echo 'acl forbidden url_regex (.*\.{0,1})?google\.([a-zA-Z]){0,3}(\/?|$)' >> /etc/squid/squid.conf
+        echo 'acl ip1 myip {{ c2_ip_address_1 }}' >> /etc/squid/squid.conf
+        echo 'acl ip2 myip {{ c2_ip_address_2 }}' >> /etc/squid/squid.conf
+        echo 'acl ip3 myip {{ c2_ip_address_3 }}' >> /etc/squid/squid.conf
+        echo 'acl ip4 myip {{ c2_ip_address_4 }}' >> /etc/squid/squid.conf
+
+        echo 'auth_param basic program /usr/lib/squid3/basic_ncsa_auth /etc/squid/passwd' >> /etc/squid/squid.conf
+        echo 'auth_param basic realm proxy' >> /etc/squid/squid.conf
+        echo 'acl authenticated proxy_auth REQUIRED' >> /etc/squid/squid.conf
+
+        echo 'tcp_outgoing_address {{ c2_ip_address_1 }} ip1' >> /etc/squid/squid.conf
+        echo 'tcp_outgoing_address {{ c2_ip_address_2 }} ip2' >> /etc/squid/squid.conf
+        echo 'tcp_outgoing_address {{ c2_ip_address_3 }} ip3' >> /etc/squid/squid.conf
+        echo 'tcp_outgoing_address {{ c2_ip_address_4 }} ip4' >> /etc/squid/squid.conf
+
+        echo 'http_access deny forbidden' >> /etc/squid/squid.conf
+        echo 'http_access allow localhost' >> /etc/squid/squid.conf
+        echo 'http_access allow authenticated' >> /etc/squid/squid.conf
+        echo 'http_access deny all' >> /etc/squid/squid.conf
+
+        systemctl enable squid
+        systemctl restart squid
+
+        useradd {{ dante_user }} -p "$(openssl passwd -6 {{ dante_pass }})" -s /usr/bin/nologin
+
+        echo 'logoutput: /var/log/socks.log' > /etc/danted.conf 
+        echo 'user.privileged: root' >> /etc/danted.conf
+        echo 'user.unprivileged: nobody' >> /etc/danted.conf
+
+        echo 'internal.protocol: ipv6' >> /etc/danted.conf
+        echo 'internal: {{ c2_ip_address_1 }} port=1080' >> /etc/danted.conf
+        echo 'internal: {{ c2_ip_address_2 }} port=1080' >> /etc/danted.conf
+        echo 'internal: {{ c2_ip_address_3 }} port=1080' >> /etc/danted.conf
+        echo 'internal: {{ c2_ip_address_4 }} port=1080' >> /etc/danted.conf
+
+        echo 'external.protocol: ipv6' >> /etc/danted.conf
+        echo 'external: {{ c2_ip_address_1 }}' >> /etc/danted.conf
+        echo 'external: {{ c2_ip_address_2 }}' >> /etc/danted.conf
+        echo 'external: {{ c2_ip_address_3 }}' >> /etc/danted.conf
+        echo 'external: {{ c2_ip_address_4 }}' >> /etc/danted.conf
+
+        echo 'external.rotation: same-same' >> /etc/danted.conf
+
+        echo 'socksmethod: username' >> /etc/danted.conf
+        echo 'clientmethod: none' >> /etc/danted.conf
+
+        echo 'client pass {' >> /etc/danted.conf
+        echo '    from: 0/0 to: 0/0' >> /etc/danted.conf
+        echo '    log: connect disconnect error' >> /etc/danted.conf
+        echo '}' >> /etc/danted.conf
+
+        echo 'socks pass {' >> /etc/danted.conf
+        echo '    from: 0/0 to: 0/0 port != 25' >> /etc/danted.conf
+        echo '    log: connect disconnect error' >> /etc/danted.conf
+        echo '}' >> /etc/danted.conf
+        
+        sed -E -i 's/^(PrivateTmp=.*)$/#\1/g' /lib/systemd/system/danted.service
+        sed -E -i 's/^(InaccessibleDirectories=.*)$/#\1/g' /lib/systemd/system/danted.service
+        sed -E -i 's/^(ReadOnlyDirectories=.*)$/#\1/g' /lib/systemd/system/danted.service
+
+        systemctl enable danted
+        systemctl restart danted
