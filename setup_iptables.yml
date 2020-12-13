@@ -58,6 +58,7 @@
       /usr/sbin/iptables -A INPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT 
       /usr/sbin/iptables -A INPUT -p icmp -m set --match-set AllowedSubnet src -m icmp --icmp-type 8 -j ACCEPT
       /usr/sbin/iptables -A INPUT -p tcp -m set --match-set AllowedSubnet src -m tcp --dport 22 -j ACCEPT
+      /usr/sbin/iptables -P INPUT DROP
 
   - name: Setup ip6tables (SNAT DNAT)
     shell: |
